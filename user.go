@@ -16,7 +16,17 @@ type UserReferral struct {
 	ID         string     `json:"id"`
 	ReferrerID string     `json:"referrer_id"` // ID of the user whose referral code was used
 	RefereeID  string     `json:"referee_id"`  // ID of the user who was referred
-	PaidOut    bool       `json:"paid_out"`    // has this referral bonus being paid out to the user
+	PaidOut    bool       `json:"paid_out"`    // has this referral bonus being paid out to the referrer
+	CreatedAt  time.Time  `json:"created_at"`
+	UpdatedAt  time.Time  `json:"updated_at"`
+	DeletedAt  *time.Time `json:"deleted_at"`
+}
+
+type UserReferralTransactionTotal struct {
+	ID         string     `json:"id"`
+	ReferrerID string     `json:"referrer_id"` // ID of the user whose referral code was used
+	RefereeID  string     `json:"referee_id"`  // ID of the user who was referred
+	Points     int64      `json:"points"`
 	CreatedAt  time.Time  `json:"created_at"`
 	UpdatedAt  time.Time  `json:"updated_at"`
 	DeletedAt  *time.Time `json:"deleted_at"`

@@ -3,12 +3,12 @@ package handler
 import (
 	"context"
 	"crypto/rand"
-	"io"
-
 	app "github.com/danvixent/aboki-africa-assessment"
 	"github.com/danvixent/aboki-africa-assessment/datastore/postgres"
 	"github.com/danvixent/aboki-africa-assessment/errors"
+	"github.com/jackc/pgx"
 	log "github.com/sirupsen/logrus"
+	"io"
 )
 
 type Handler struct {
@@ -100,6 +100,67 @@ func GenReferralCode(max int) string {
 	return string(b)
 }
 
-func (h *Handler) TransferPoints() {
+func (h *Handler) TransferPoints(ctx context.Context, input *TransferPointsRequest) error {
+	logger := log.WithFields(map[string]interface{}{})
+	tx, err := h.client.BeginTx()
+	if err != nil {
+		logger.WithError(err).Error("failed to start transaction")
+		return errors.ErrGeneric
+	}
+	defer tx.Rollback(ctx)
 
+	//cctx := context.WithValue(ctx, "pgxTX", tx)
+
+	userPointResource := postgres.NewUserPointsResource(tx)
+	balance, err := userPointResource.GetUserPointsBalance(ctx, input.UserID)
+	if err != nil {
+		logger.WithError(err).Error("failed to get user points balance")
+		return errors.ErrGeneric
+	}
+
+	if balance < input.Points {
+		return errors.ErrInsufficientFunds
+	}
+
+	totalTransferredPoints, err := userPointResource.GetUserTotalTransferredPoints(ctx, input.UserID)
+	if err != nil {
+		logger.WithError(err).Error("failed to get user total transferred points")
+		return errors.ErrGeneric
+	}
+
+	if err = userPointResource.DebitUser(ctx, input.Points, input.UserID); err != nil {
+		logger.WithError(err).Error("failed to debit sender")
+		return errors.ErrDebitUserFailed
+	}
+
+	if err = userPointResource.CreditUser(ctx, input.RecipientUserID, input.Points); err != nil {
+		logger.WithError(err).Error("failed to credit recipient")
+		return errors.ErrCreditUserFailed
+	}
+
+	txn := &app.Transaction{
+		UserID:          input.UserID,
+		RecipientUserID: input.RecipientUserID,
+		Points:          input.Points,
+	}
+
+	if err = userPointResource.CreatePointTransaction(ctx, txn); err != nil {
+		logger.WithError(err).Error("failed to create transaction")
+		return errors.ErrCreditUserFailed
+	}
+
+	if totalTransferredPoints < 200 && totalTransferredPoints+input.Points > 200 {
+		userReferralResource := postgres.NewUserReferralResource(tx)
+		referrer, err := userReferralResource.GetUserReferrer(ctx, input.UserID)
+		if err != nil {
+			// if it's pgx.ErrNoRows, it means this user wasn't referred by anyone
+			if !errors.Is(err, pgx.ErrNoRows) {
+				logger.WithError(err).Error("failed to find user referrer")
+				return errors.ErrGeneric
+			}
+		}
+
+	}
+
+	return nil
 }

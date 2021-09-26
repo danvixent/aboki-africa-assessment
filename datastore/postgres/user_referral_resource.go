@@ -46,3 +46,14 @@ func (u *UserReferralResource) MarkPendingReferralsAsPaid(ctx context.Context, r
 	_, err := u.tx.Exec(ctx, "UPDATE user_referrals SET paid_out = true WHERE referrer_id = $1", referrerID)
 	return err
 }
+
+func (u *UserReferralResource) GetUserReferrer(ctx context.Context, userID string) (*app.User, error) {
+	row := u.tx.QueryRow(ctx, "SELECT * FROM users WHERE id IN( SELECT referrer_id FROM user_referrals WHERE referee_id = $1 AND deleted_at IS NULL)", userID)
+
+	user := &app.User{}
+	err := row.Scan(&user.ID, &user.Name, &user.Email, &user.ReferralCode, &user.CreatedAt, &user.UpdatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return user, nil
+}
