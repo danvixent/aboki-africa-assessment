@@ -1,6 +1,7 @@
 package config
 
 type BaseConfig struct {
+	ServePort      string          `yaml:"serve_port"`
 	PaystackAPIKey string          `yaml:"paystack_api_key"`
 	Postgres       *PostgresConfig `yaml:"postgres"`
 }

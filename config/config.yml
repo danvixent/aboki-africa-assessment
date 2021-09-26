@@ -1,8 +1,9 @@
 paystack_api_key: "sk_test_4946c2af76db5427f27dae0e1291cbe78d830f32"
+serve_port: "8081"
 postgres:
   database: postgres
   password: postgres
   username: postgres
   host: localhost
   port: "5432"
-  maxconn: 3
+  max_conn: 3
